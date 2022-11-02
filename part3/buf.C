@@ -76,18 +76,7 @@ const Status BufMgr::allocBuf(int & frame)
 	
 const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
 {
-
-
-
-
-
-}
-
-
-const Status BufMgr::unPinPage(File* file, const int PageNo, 
-			       const bool dirty) 
-{
- 	Status ret_stat = OK;
+    Status ret_stat = OK;
     int frameNo = -1;
     // look up the page in the hash table, get the corresponding frameNo if exists
     ret_stat = hashTable->lookup(file, pageNo, frameNo);
@@ -122,7 +111,12 @@ const Status BufMgr::unPinPage(File* file, const int PageNo,
 		}	
 	}
 	return OK;
- }
+}
+
+
+const Status BufMgr::unPinPage(File* file, const int PageNo, 
+			       const bool dirty) 
+
 
 
 
