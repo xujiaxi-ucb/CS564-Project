@@ -87,12 +87,44 @@ const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
 const Status BufMgr::unPinPage(File* file, const int PageNo, 
 			       const bool dirty) 
 {
+ 	Status ret_stat = OK;
+    int frameNo = -1;
+    // look up the page in the hash table, get the corresponding frameNo if exists
+    ret_stat = hashTable->lookup(file, pageNo, frameNo);
+    
+    // Case: Page is in the buffer pool
+    if (ret_stat == OK && frameNo >= 0) {
+    	BufDesc* entry = &bufTable[frameNo];
+    	entry->pinCnt++;
+    	entry->refbit = 0; // ?
+    	page = & (bufPool[frameNo]);
+    	
+    // Case: Page is not in the buffer pool
+    } else {	
+		ret_stat = allocBuf(frameNo);
+		if (ret_stat != OK) { // all buffer frames are pinned or the call to the I/O layer returned an error
+			return ret_stat;
+		} else { // frame allocated
+			ret_stat = file->readPage(PageNo, &(bufPool[frameNo]));
+			if (ret_stat == UNIXERR) {
+				return ret_stat;
+			} else if (ret_stat != OK) {
+				print(ret_stat); //error msg
+				return ret_stat;
+			}
+			// insert to hash table
+			ret_stat = insert(file, pageNo, frameNo);
+			if (ret_stat == HASHTBLERROR) return ret_stat;
+			
+			// set buffer frame
+			BufDesc* entry = &bufTable[frameNo];
+			entry->Set(file, PageNo);
+		}	
+	}
+	return OK;
+ }
 
 
-
-
-
-}
 
 const Status BufMgr::allocPage(File* file, int& pageNo, Page*& page) 
 {
