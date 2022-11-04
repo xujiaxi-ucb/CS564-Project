@@ -66,12 +66,48 @@ BufMgr::~BufMgr() {
 const Status BufMgr::allocBuf(int & frame) 
 {
 
+	 //Iterate through frames in buf table
+	 Status status;
+	 int frame_count=1;
+	 while (frame_count<numBufs) {
+		 BufDesc* currbuf = &bufTable[clockHand];
 
+		 if (currbuf->valid == true ) {//check if valid
+			 if (currbuf->refbit == true ) {
+				 //clear refbit,advance clockhand. Start from top
+				 currbuf->refbit=false;
+				 advanceClock();
+				 continue;
+			 } else {
+				 if (currbuf->pinCnt <= 0 ) { //not pinned
+					 //currbuf->valid=false;
+					 hashTable->remove(currbuf->file,currbuf->pageNo);	 //remove page from hashtable for valid page
+					 if (currbuf->dirty ==true){ //flush if true
+						#ifdef DEBUGBUF
+							cout << "flushing page " << currbuf->pageNo
+									 << " from frame " << clockHand << endl;
+						#endif
+						status = currbuf->file->writePage(currbuf->pageNo, &(bufPool[clockHand]));
+						currbuf->dirty = false;
+					   }
+					 return status;
+				 } else { //if pinned
+					 advanceClock();
+					 continue;
+				 }
+		    }
 
+			 } else return status=OK; //invalid page
 
-
+		 frame_count +=1;
+	 }
+	 return status=BUFFEREXCEEDED; //all frames are pinned
 
 }
+
+
+
+
 
 	
 const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
