@@ -115,13 +115,13 @@ const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
     Status ret_stat = OK;
     int frameNo = -1;
     // look up the page in the hash table, get the corresponding frameNo if exists
-    ret_stat = hashTable->lookup(file, pageNo, frameNo);
+    ret_stat = hashTable->lookup(file, PageNo, frameNo);
     
     // Case: Page is in the buffer pool
     if (ret_stat == OK && frameNo >= 0) {
     	BufDesc* entry = &bufTable[frameNo];
     	entry->pinCnt++;
-    	entry->refbit = 0; // ?
+    	entry->refbit = true; // ?
     	page = & (bufPool[frameNo]);
     	
     // Case: Page is not in the buffer pool
@@ -134,11 +134,11 @@ const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
 			if (ret_stat == UNIXERR) {
 				return ret_stat;
 			} else if (ret_stat != OK) {
-				print(ret_stat); //error msg
+				cout << ret_stat ; //error msg
 				return ret_stat;
 			}
 			// insert to hash table
-			ret_stat = insert(file, pageNo, frameNo);
+			ret_stat = hashTable->insert(file, PageNo, frameNo);
 			if (ret_stat == HASHTBLERROR) return ret_stat;
 			
 			// set buffer frame
@@ -163,23 +163,35 @@ const Status BufMgr::unPinPage(File* file, const int PageNo,
         return PAGENOTPINNED;
     }
     if (dirty) {
-        bufTable[frameNo].dirty == true;
+        bufTable[frameNo].dirty = true;
     }
     bufTable[frameNo].pinCnt-- ;
+    //bufTable[frameNo].refbit=true; //check on testing
+
     return OK;
 }
 
 
 
-const Status BufMgr::allocPage(File* file, int& pageNo, Page*& page) 
+const Status BufMgr::allocPage(File* file, int& PageNo, Page*& page)
 {
 
+	Status status;
+	int frameNo;
+	//int pageNo;
 
+	status=file->allocatePage( PageNo);
+	status=allocBuf(frameNo);
 
+	// insert to hash table
+	status = hashTable->insert(file, PageNo, frameNo);
+	if (status == HASHTBLERROR) return status;
 
+	// set buffer frame
+	BufDesc* entry = &bufTable[frameNo];
+	entry->Set(file, PageNo);
 
-
-
+return status;
 }
 
 const Status BufMgr::disposePage(File* file, const int pageNo) 
