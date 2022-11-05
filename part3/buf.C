@@ -153,20 +153,23 @@ const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
 const Status BufMgr::unPinPage(File* file, const int PageNo, 
 			       const bool dirty) 
 {
-    int frameNo = 0;
+    int frameNo = -1;
     // init stage
     Status status = OK;
     status = hashTable->lookup(file, PageNo, frameNo);
-    if (status != OK) return HASHNOTFOUND;
+    if (status != OK) {
+	    return status;
+    }
+	
     // the frame containing (file, PageNo)    
     if (bufTable[frameNo].pinCnt == 0) {
         return PAGENOTPINNED;
     }
+	
     if (dirty) {
         bufTable[frameNo].dirty = true;
     }
     bufTable[frameNo].pinCnt-- ;
-    //bufTable[frameNo].refbit=true; //check on testing
 
     return OK;
 }
