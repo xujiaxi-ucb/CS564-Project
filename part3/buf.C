@@ -175,24 +175,27 @@ const Status BufMgr::unPinPage(File* file, const int PageNo,
 
 const Status BufMgr::allocPage(File* file, int& PageNo, Page*& page)
 {
+        Status status;
+        int frameNo = -1;
+        //int pageNo;
+        int pagenumber = -1;
+        status=file->allocatePage(pagenumber);
+        cout << pagenumber;
 
-	Status status;
-	int frameNo;
-	//int pageNo;
+        status=allocBuf(frameNo);
+        cout << frameNo;
 
-	status=file->allocatePage( PageNo);
-	status=allocBuf(frameNo);
-
-	// insert to hash table
-	status = hashTable->insert(file, PageNo, frameNo);
-	if (status == HASHTBLERROR) return status;
-
-	// set buffer frame
-	BufDesc* entry = &bufTable[frameNo];
-	entry->Set(file, PageNo);
-
-return status;
+        // insert to hash table
+        status = hashTable->insert(file, pagenumber, frameNo);
+        if (status == HASHTBLERROR) return status;
+        // set buffer frame
+        BufDesc* entry = &bufTable[frameNo];
+        entry->Set(file, pagenumber);
+        PageNo = pagenumber;
+        page = &(bufPool[frameNo]);
+        return OK;
 }
+
 
 const Status BufMgr::disposePage(File* file, const int pageNo) 
 {
@@ -264,5 +267,4 @@ void BufMgr::printSelf(void)
         cout << endl;
     };
 }
-
 
