@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <iostream>
+#include <string>
 #include <stdio.h>
 #include "page.h"
 #include "buf.h"
@@ -68,47 +69,52 @@ const Status BufMgr::allocBuf(int & frame)
 
 	 //Iterate through frames in buf table
 	 Status status;
-	 int frame_count=1;
-	 while (frame_count<numBufs) {
+	 int frame_count = 1;
+	 while (frame_count <= (2*numBufs)) {
 		 BufDesc* currbuf = &bufTable[clockHand];
-
-		 if (currbuf->valid == true ) {//check if valid
-			 if (currbuf->refbit == true ) {
-				 //clear refbit,advance clockhand. Start from top
-				 currbuf->refbit=false;
-				 advanceClock();
-				 continue;
-			 } else {
-				 if (currbuf->pinCnt <= 0 ) { //not pinned
-					 //currbuf->valid=false;
-					 hashTable->remove(currbuf->file,currbuf->pageNo);	 //remove page from hashtable for valid page
-					 if (currbuf->dirty ==true){ //flush if true
-						#ifdef DEBUGBUF
-							cout << "flushing page " << currbuf->pageNo
-									 << " from frame " << clockHand << endl;
-						#endif
+		 
+		 if (currbuf->valid == false) { //no valid pages, directly use
+		 	 frame = clockHand;
+		 	 return OK;
+		 } else { // valid page there
+	 		 if (currbuf -> pinCnt > 0) { 
+	 		 	advanceClock();
+	 		 	frame_count ++;
+	 		 	continue;
+	 		 } else { //pinCnt = 0
+	 		 	if (currbuf->refbit==true) { //hot page
+	 		 		currbuf->refbit=false; // clear refbit and continue
+	 		 		advanceClock(); 
+	 		 		frame_count ++;
+	 		 		continue;
+	 		 	} else { // valid page there, but we can use this frame
+	 		 		if (currbuf->dirty==false) { // won't flush, just clear and use
+	 		 			status = hashTable->remove(currbuf->file,currbuf->pageNo);
+	 		 			//if (status != OK) {return status;}
+	 		 			currbuf->Clear();
+						frame = clockHand;
+		 	 			return OK;
+	 		 		} else { // need to flush to disk
+	 		 			//#ifdef DEBUGBUF
+						//	cout << "flushing page " << currbuf->pageNo
+						//			 << " from frame " << clockHand << endl;
+						//#endif
 						status = currbuf->file->writePage(currbuf->pageNo, &(bufPool[clockHand]));
+						if (status != OK) {return UNIXERR;}
 						currbuf->dirty = false;
-					   }
-					 return status;
-				 } else { //if pinned
-					 advanceClock();
-					 continue;
-				 }
-		    }
-
-			 } else return status=OK; //invalid page
-
-		 frame_count +=1;
-	 }
-	 return status=BUFFEREXCEEDED; //all frames are pinned
-
+						status = hashTable->remove(currbuf->file,currbuf->pageNo);
+						//if (status != OK) {return status;}
+						currbuf->Clear();
+						frame = clockHand;
+		 	 			return OK;
+	 		 		}
+	 		 	}
+	 		 }
+		 }
+	}
+	return BUFFEREXCEEDED; //all frames are pinned
 }
-
-
-
-
-
+		 
 	
 const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
 {
@@ -116,34 +122,44 @@ const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
     int frameNo = -1;
     // look up the page in the hash table, get the corresponding frameNo if exists
     ret_stat = hashTable->lookup(file, PageNo, frameNo);
-    
+    if (ret_stat==HASHTBLERROR){
+    	return ret_stat;
+    }
     // Case: Page is in the buffer pool
     if (ret_stat == OK && frameNo >= 0) {
     	BufDesc* entry = &bufTable[frameNo];
     	entry->pinCnt++;
-    	entry->refbit = true; // ?
+    	entry->refbit = true;
     	page = & (bufPool[frameNo]);
-    	
+        //printf("find\n");
     // Case: Page is not in the buffer pool
     } else {	
-		ret_stat = allocBuf(frameNo);
-		if (ret_stat != OK) { // all buffer frames are pinned or the call to the I/O layer returned an error
-			return ret_stat;
-		} else { // frame allocated
-			ret_stat = file->readPage(PageNo, &(bufPool[frameNo]));
+	        ret_stat = allocBuf(frameNo);
+		//printf("%s\n", frameNo.c_str());
+
+		if (ret_stat == BUFFEREXCEEDED) { // all buffer frames are pinned or the call to the I/O layer returned an error
+			return BUFFEREXCEEDED;
+		} else if (ret_stat == UNIXERR){
+			return UNIXERR;
+		}else { // frame allocated
+			BufDesc* entry = &bufTable[frameNo];
+                        entry->Set(file, PageNo);
+			ret_stat = file->readPage(PageNo,&(bufPool[frameNo]));
+			//printf("read:\n");
+			//cout<<PageNo;
+			//cout<<frameNo;
 			if (ret_stat == UNIXERR) {
-				return ret_stat;
-			} else if (ret_stat != OK) {
-				cout << ret_stat ; //error msg
-				return ret_stat;
+				entry->Clear();
+				return UNIXERR;
 			}
 			// insert to hash table
 			ret_stat = hashTable->insert(file, PageNo, frameNo);
 			if (ret_stat == HASHTBLERROR) return ret_stat;
 			
 			// set buffer frame
-			BufDesc* entry = &bufTable[frameNo];
-			entry->Set(file, PageNo);
+			entry->pinCnt++;
+		        entry->refbit = true;
+			page = &(bufPool[frameNo]);
 		}	
 	}
 	return OK;
@@ -157,20 +173,17 @@ const Status BufMgr::unPinPage(File* file, const int PageNo,
     // init stage
     Status status = OK;
     status = hashTable->lookup(file, PageNo, frameNo);
-    if (status != OK) {
-	    return status;
-    }
-	
+    if (status != OK) return HASHNOTFOUND;
+    BufDesc* entry = &bufTable[frameNo];
     // the frame containing (file, PageNo)    
-    if (bufTable[frameNo].pinCnt == 0) {
+    if (entry->pinCnt == 0) {
         return PAGENOTPINNED;
     }
-	
-    if (dirty) {
-        bufTable[frameNo].dirty = true;
+    if (dirty==true) {
+        entry->dirty = true;
     }
-    bufTable[frameNo].pinCnt-- ;
-
+    entry->pinCnt-- ;
+    //bufTable[frameNo].refbit=true; //check on testing
     return OK;
 }
 
@@ -183,14 +196,18 @@ const Status BufMgr::allocPage(File* file, int& PageNo, Page*& page)
         //int pageNo;
         int pagenumber = -1;
         status=file->allocatePage(pagenumber);
-        cout << pagenumber;
+        //cout << pagenumber;
+        if (status != OK) {
+		return status;
+	}
+        status = allocBuf(frameNo);
 
-        status=allocBuf(frameNo);
-        cout << frameNo;
-
+	//cout << frameNo;
+		if (status != OK) {return status;}
         // insert to hash table
+        
         status = hashTable->insert(file, pagenumber, frameNo);
-        if (status == HASHTBLERROR) return status;
+        if (status != OK) return status;
         // set buffer frame
         BufDesc* entry = &bufTable[frameNo];
         entry->Set(file, pagenumber);
@@ -270,4 +287,5 @@ void BufMgr::printSelf(void)
         cout << endl;
     };
 }
+
 
