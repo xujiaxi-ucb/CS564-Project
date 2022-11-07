@@ -185,7 +185,7 @@ const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
 }
 
 // Purpose: Unpin a page
-// parameters File* file the file that needs to be unpinned
+// parameters: File* file the file that needs to be unpinned
 // const int PageNo the page number that needs to be unpinned
 // const bool dirty whether the page is dirty or not 
 // return: OK if success
@@ -200,7 +200,7 @@ const Status BufMgr::unPinPage(File* file, const int PageNo,
     Status status = OK;
     status = hashTable->lookup(file, PageNo, frameNo);
     // HASHNOTFOUND if the page is not in the buffer pool hash table
-    if (status != OK) return Status;
+    if (status != OK) return HASHNOTFOUND;
     BufDesc* entry = &bufTable[frameNo];
     // PAGENOTPINNED if the pin count is already 0
     if (entry->pinCnt == 0) {
@@ -214,7 +214,7 @@ const Status BufMgr::unPinPage(File* file, const int PageNo,
 }
 
 // Purpose: allocate a page from a file 
-// @param File* file: the file to be allocated a page
+// params: File* file: the file to be allocated a page
 // int& PageNo: the page number
 // Page*& page: the pointer to the newly allocated buffer frame with page
 // return: OK if no errors occurred
