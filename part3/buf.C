@@ -3,7 +3,7 @@
 // Student ID: 9083446352
 // Student name: Xueheng Wang
 // Student ID: 9081571748
-// Student name: Jon Che
+// Student name: John Che
 // Student ID: 908 166 6506
 // File purpose: implementations of the buffer manager methods
 
