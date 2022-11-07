@@ -73,7 +73,7 @@ BufMgr::~BufMgr() {
 }
 
 // Purpose: Allocates a free frame using the clock algorithm
-// @param int & frame: frameNo of the allocated
+// parameters: int & frame: frameNo of the allocated
 // return: OK if success
 // BUFFEREXCEEDED if all buffer frames are pinned, 
 // UNIXERR if the call to the I/O layer returned an error when a dirty page was being written to disk
