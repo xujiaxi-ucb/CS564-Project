@@ -134,18 +134,40 @@ const int HeapFile::getRecCnt() const
 // is unpinned and the required page is read into the buffer pool
 // and pinned.  returns a pointer to the record via the rec parameter
 
+//  Returns (via the rec parameter) the record whose rid is stored in curRec
+
 const Status HeapFile::getRecord(const RID & rid, Record & rec)
 {
     Status status;
 
     // cout<< "getRecord. record (" << rid.pageNo << "." << rid.slotNo << ")" << endl;
-   
-   
-   
-   
-   
-   
-   
+    if (curPage != NULL) {
+        //if record is not on the currently pinned page, the current page is unpinned
+        if (curPageNo != rid.pageNo) {
+            status = bufMgr->unPinPage(filePtr,curPageNo,curDirtyFlag);
+            if (status != OK) {
+                curPage = NULL;
+                curPageNo = 0;
+                curDirtyFlag = false;
+                return status;
+            }
+        } else {
+            // the required page is correctly pinned
+            status = curPage->getRecord(rid,rec);
+            curRec = rid;
+            return status;
+        }
+    }
+
+    // if page is not in buffer, we will load it
+    if ((status = bufMgr->readPage(filePtr, rid.pageNo, curPage)) != OK) {
+        return status;
+    }
+    curDirtyFlag = false;
+    curPageNo = rid.pageNo;
+    curRec = rid;
+
+    return curPage->getRecord(rid, rec);
 }
 
 HeapFileScan::HeapFileScan(const string & name,
