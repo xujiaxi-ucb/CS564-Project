@@ -14,22 +14,26 @@ const Status createHeapFile(const string fileName)
     // try to open the file. This should return an error
     status = db.openFile(fileName, file);
     if (status != OK)
-    {
-		// file doesn't exist. First create it and allocate
-		// an empty header page and data page.
+     {
+	// file doesn't exist. First create it and allocate
+	// an empty header page and data page.
+
+	db->createfile();
+	bm->allocPage(file , newPageNo, newPage);
+	hdrPage = (FileHdrPage*) newPage;
 		
+        //TODO initiallize value in headerpage
 		
+	bm->allocPage(file, firstDataPageNo, firstDataPage) ;
+        firstDataPage->init(firstDataPageNo);
 		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+		hdrPage->firstPage = firstDataPageNo;
+        hdrPage->lastPage = firstDataPageNo;
+
+        //unpin both pages
+       bm->unPinPage(file, firstPage, true) ;
+       bm->unPinPage(file, lastPage, true) ;
+	
     }
     return (FILEEXISTS);
 }
