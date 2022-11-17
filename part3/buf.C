@@ -1,3 +1,12 @@
+// CS564: Buffer Manager
+// Student name: Jiaxi Xu
+// Student ID: 9083446352
+// Student name: Xueheng Wang
+// Student ID: 9081571748
+// Student name: John Che
+// Student ID: 908 166 6506
+// File purpose: implementations of the buffer manager methods
+
 #include <memory.h>
 #include <unistd.h>
 #include <errno.h>
@@ -63,6 +72,11 @@ BufMgr::~BufMgr() {
     delete [] bufPool;
 }
 
+// Purpose: Allocates a free frame using the clock algorithm
+// parameters: int & frame: frameNo of the allocated
+// return: OK if success
+// BUFFEREXCEEDED if all buffer frames are pinned, 
+// UNIXERR if the call to the I/O layer returned an error when a dirty page was being written to disk
 
 const Status BufMgr::allocBuf(int & frame) 
 {
@@ -114,7 +128,15 @@ const Status BufMgr::allocBuf(int & frame)
 	return BUFFEREXCEEDED; //all frames are pinned
 }
 		 
-	
+// Purpose: read a page
+// parameters File* file: a pointer to the file
+// const int PageNo: page number that we want to read
+// Page*& page: a pointer to the reference to the file we want to read
+// return: OK if no errors occurred
+// UNIXERR if a Unix error occurred
+// BUFFEREXCEEDED if all buffer frames are pinned
+// HASHTBLERROR if a hash table error occurred
+
 const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
 {
     Status ret_stat = OK;
@@ -162,6 +184,13 @@ const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
 	return OK;
 }
 
+// Purpose: Unpin a page
+// parameters: File* file the file that needs to be unpinned
+// const int PageNo the page number that needs to be unpinned
+// const bool dirty whether the page is dirty or not 
+// return: OK if success
+// HASHNOTFOUND if the page is not in the buffer pool hash table
+// PAGENOTPINNED if the pin count is already 0
 
 const Status BufMgr::unPinPage(File* file, const int PageNo, 
 			       const bool dirty) 
@@ -170,27 +199,34 @@ const Status BufMgr::unPinPage(File* file, const int PageNo,
     // init stage
     Status status = OK;
     status = hashTable->lookup(file, PageNo, frameNo);
+    // HASHNOTFOUND if the page is not in the buffer pool hash table
     if (status != OK) return HASHNOTFOUND;
     BufDesc* entry = &bufTable[frameNo];
-    // the frame containing (file, PageNo)    
+    // PAGENOTPINNED if the pin count is already 0
     if (entry->pinCnt == 0) {
         return PAGENOTPINNED;
     }
     if (dirty==true) {
-        entry->dirty = true;
+        entry->dirty = true; // if dirty == true, sets the dirty bit
     }
-    entry->pinCnt-- ;
-    //bufTable[frameNo].refbit=true; //check on testing
+    entry->pinCnt-- ; // Decrements the pinCnt of the frame containing (file, PageNo)
     return OK;
 }
 
+// Purpose: allocate a page from a file 
+// params: File* file: the file to be allocated a page
+// int& PageNo: the page number
+// Page*& page: the pointer to the newly allocated buffer frame with page
+// return: OK if no errors occurred
+// UNIXERR if a Unix error occurred
+// BUFFEREXCEEDED if all buffer frames are pinned
+// HASHTBLERROR if a hash table error occurred
 
 const Status BufMgr::allocPage(File* file, int& PageNo, Page*& page)
 {
         Status status;
         int frameNo = -1;
         int pagenumber = -1;
-        
         // allocate a page from file
         status=file->allocatePage(pagenumber);
         if (status != OK) {
@@ -208,6 +244,7 @@ const Status BufMgr::allocPage(File* file, int& PageNo, Page*& page)
         BufDesc* entry = &bufTable[frameNo];
         entry->Set(file, pagenumber);
         PageNo = pagenumber;
+        // a pointer to the buffer frame allocated for the page via the page parameter
         page = &(bufPool[frameNo]);
         return OK;
 }
