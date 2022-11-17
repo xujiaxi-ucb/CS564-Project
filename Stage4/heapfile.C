@@ -27,7 +27,7 @@ const Status createHeapFile(const string fileName)
 	bm->allocPage(file, firstDataPageNo, firstDataPage) ;
         firstDataPage->init(firstDataPageNo);
 		
-		hdrPage->firstPage = firstDataPageNo;
+	hdrPage->firstPage = firstDataPageNo;
         hdrPage->lastPage = firstDataPageNo;
 
         //unpin both pages
