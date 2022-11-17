@@ -51,17 +51,31 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
     // open the file and read in the header page and the first data page
     if ((status = db.openFile(fileName, filePtr)) == OK)
     {
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+        File* file = filePtr; // save the File* returned
+        
+        int pageNo = -1;
+        // get the header page number 
+		status = getFirstPage(pageNo);
+        if (status!=OK) {return status;}
+        
+        // read header page to buffer
+        status = bufMgr->readPage(file, pageNo, pagePtr);
+        if (status!=OK) {return status;}
+        // initialize fields of header page
+        this.headerPage = (FileHdrPage*)pagePtr;
+        this.headerPageNo = pageNo;
+        this.hdrDirtyFlag = false;
+
+        // read first data page
+        int firstPageNo = headerPage->firstPage;
+
+        // initialize fields of current page
+        status = bufMgr->readPage(file, firstPageNo, pagePtr);
+        if (status!=OK) {return status;}
+        this.curPage = pagePtr;
+        this.curPageNo = firstPageNo;
+        this.curDirtyFlag = false;
+        this.curRec = NULLRID;
     }
     else
     {
@@ -70,6 +84,7 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
 		return;
     }
 }
+
 
 // the destructor closes the file
 HeapFile::~HeapFile()
