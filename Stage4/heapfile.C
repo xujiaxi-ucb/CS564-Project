@@ -403,18 +403,68 @@ const Status InsertFileScan::insertRecord(const Record & rec, RID& outRid)
         return INVALIDRECLEN;
     }
 
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+    if (curPage == NULL) 
+    {
+        // Read the last page and make it the current page
+        curPageNo = headerPage->lastPage;
+    	status = bufMgr->readPage(filePtr, curPageNo, curPage);
+    	if (status != OK) 
+        {
+            return status;
+        } 
+    } else if ((status = curPage->insertRecord(rec,rid)) != OK) // If curPage is full
+    {
+        // Allocate a new page
+        status = bufMgr->allocPage(filePtr, newPageNo, newPage);
+        if (status != OK) 
+        {
+            return status;
+        } 
+        // Initialize the empty page
+        newPage->init(newPageNo);
+        status = newPage->setNextPage(-1);
+        if (status != OK) 
+        {
+            return status;
+        } 
+        // Modify header page contents properly
+        headerPage -> lastPage = newPageNo;
+        headerPage -> pageCnt++;
+        hdrDirtyFlag = true;
+        // Link up new page appropriately
+        status = curPage->setNextPage(newPageNo);
+        if (status != OK) 
+        {
+            return status;
+        } 
+        // Make current page the newly allocated page
+        // Unpin curPage
+        status = bufMgr->unPinPage(filePtr, curPageNo, true);
+        if (status != OK)
+        {
+            curDirtyFlag = false;
+            curPageNo = -1;
+            curPage = NULL;
+            unpin = bufMgr->unPinPage(filePtr, newPageNo, true);
+            return status;
+        }
+        // Set curPage and curPageNo
+        curPage = newPage;
+	    curPageNo = newPageNo;
+        // Insert record
+        status = curPage->insertRecord(rec, rid);
+        outRid = rid;
+        headerPage -> pageCnt++;
+        curDirtyFlag = true;
+        hdrDirtyFlag = true;
+        return status;
+    } else // if nothing is wrong
+    {
+        status = curPage->insertRecord(rec, rid);
+        outRid = rid;
+        headerPage -> pageCnt++;
+        curDirtyFlag = true;
+        hdrDirtyFlag = true;
+        return status;
+    }  
 }
-
-
