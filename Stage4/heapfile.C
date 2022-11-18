@@ -22,15 +22,20 @@ const Status createHeapFile(const string fileName)
 	bm->allocPage(file , newPageNo, newPage);
 	hdrPage = (FileHdrPage*) newPage;
 		
-        //TODO initiallize value in headerpage
-		
+        //initiallize value in headerpage
+	hdrPage-> fileName=fileName;   // name of file
+	hdrPage->firstPage = 0;
+        hdrPage->lastPage = 0;
+	hdrPage-> pageCnt=0;	// number of pages
+	hdrPage-> recCnt=0;		// record count
+
 	bm->allocPage(file, firstDataPageNo, firstDataPage) ;
-        firstDataPage->init(firstDataPageNo);
+       firstDataPage->init(firstDataPageNo);
 		
 	hdrPage->firstPage = firstDataPageNo;
-        hdrPage->lastPage = firstDataPageNo;
+       hdrPage->lastPage = firstDataPageNo;
 
-        //unpin both pages
+       //unpin both pages
        bm->unPinPage(file, firstPage, true) ;
        bm->unPinPage(file, lastPage, true) ;
 	
