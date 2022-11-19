@@ -82,7 +82,10 @@ public:
 
     // return RID of next record that satisfies the scan 
     const Status scanNext(RID& outRid);
-
+    
+    /* helper method to get the RID of next record in the file, read a new page if reaching the end of current page */
+	  const Status getNextRID(RID& nextRid);
+    
     // read current record, returning pointer and length
     const Status getRecord(Record & rec);
 
