@@ -65,26 +65,23 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
         int pageNo = -1;
         // get the header page number 
 		status = file->getFirstPage(pageNo);
-        if (status!=OK) {return status;}
         
         // read header page to buffer
         status = bufMgr->readPage(file, pageNo, pagePtr);
-        if (status!=OK) {return status;}
         // initialize fields of header page
-        this.headerPage = (FileHdrPage*)pagePtr;
-        this.headerPageNo = pageNo;
-        this.hdrDirtyFlag = false;
+        headerPage = (FileHdrPage*)pagePtr;
+        headerPageNo = pageNo;
+        hdrDirtyFlag = false;
 
         // read first data page
         int firstPageNo = headerPage->firstPage;
 
         // initialize fields of current page
         status = bufMgr->readPage(file, firstPageNo, pagePtr);
-        if (status!=OK) {return status;}
-        this.curPage = pagePtr;
-        this.curPageNo = firstPageNo;
-        this.curDirtyFlag = false;
-        this.curRec = NULLRID;
+        curPage = pagePtr;
+        curPageNo = firstPageNo;
+        curDirtyFlag = false;
+        curRec = NULLRID;
     }
     else
     {
@@ -270,21 +267,22 @@ const Status HeapFileScan::scanNext(RID& outRid)
     RID		tmpRid;
     int 	nextPageNo;
     Record      rec;
+    Page*	pagePtr;
 
     // if end of the file
-    if (this.curPageNo == -1) {
+    if (curPageNo == -1) {
         return FILEEOF;
     }
 
-    if (this.curPage == NULL) { // need to load the first page
+    if (curPage == NULL) { // need to load the first page
         // read first data page
         int firstPageNo = headerPage->firstPage;
         // initialize fields of current page
-        status = bufMgr->readPage(file, firstPageNo, pagePtr);
+        status = bufMgr->readPage(filePtr, firstPageNo, pagePtr);
         if (status!=OK) {return status;}
-        this.curPage = pagePtr;
-        this.curPageNo = firstPageNo;
-        this.curDirtyFlag = false;
+        curPage = pagePtr;
+        curPageNo = firstPageNo;
+        curDirtyFlag = false;
         // get the first record of current page
         status = curPage->firstRecord(tmpRid);
         if (status == NORECORDS){ // unpin page and return FILEEOF
@@ -293,7 +291,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
             curPageNo = -1;
             return FILEEOF;
         }else {
-            this.curRec = tmpRid;
+            curRec = tmpRid;
             status = getRecord(rec);
             if (status!=OK) {return status;}
             if (matchRec(rec)){ // determine if the first record satisfies the filter
@@ -305,7 +303,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
     
     while (getNextRID(nextRid)== OK) { // traverse through every record
         // update current record to next record found
-        this.curRec = nextRid;
+        curRec = nextRid;
         status = getRecord(rec);
         if (status!=OK) {return status;}
         if (matchRec(rec)){ // determine if matches
@@ -320,25 +318,25 @@ const Status HeapFileScan::scanNext(RID& outRid)
 }
 
 /* helper method to get the RID of next record in the file, read a new page if reaching the end of current page */
-const Status getNextRID(RID& nextRid){
+const Status HeapFileScan::getNextRID(RID& nextRid){
     Status 	status = OK;
     RID	tmpRid;
     int nextPageNo;
     status = curPage->nextRecord(curRec, tmpRid);
     while (status == ENDOFPAGE || status == NORECORDS){
-        if (curPageNo == hdrPage->lastPage) {
+        if (curPageNo == headerPage->lastPage) {
             bufMgr->unPinPage(filePtr,curPageNo,curDirtyFlag);
             curPage = NULL;
             return FILEEOF;
         }
-        status = getNextPage(nextPageNo);
+        status = curPage->getNextPage(nextPageNo);
         if (status!=OK) {return status;}
         // unpin current page
         bufMgr->unPinPage(filePtr,curPageNo,curDirtyFlag);
         // load next page    
         curPageNo = nextPageNo;
         curDirtyFlag = false;
-        status = bufMgr->readPage(file, firstPageNo, curPage);
+        status = bufMgr->readPage(filePtr, curPageNo, curPage);
         if (status!=OK) {return status;}
         //read first record
         status = curPage->firstRecord(tmpRid);
