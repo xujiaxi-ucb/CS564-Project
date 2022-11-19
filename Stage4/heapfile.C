@@ -64,7 +64,7 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
         
         int pageNo = -1;
         // get the header page number 
-		status = getFirstPage(pageNo);
+		status = file->getFirstPage(pageNo);
         if (status!=OK) {return status;}
         
         // read header page to buffer
@@ -262,6 +262,7 @@ const Status HeapFileScan::resetScan()
 }
 
 
+/* Find next record that satisfies the predicate */
 const Status HeapFileScan::scanNext(RID& outRid)
 {
     Status 	status = OK;
@@ -270,16 +271,88 @@ const Status HeapFileScan::scanNext(RID& outRid)
     int 	nextPageNo;
     Record      rec;
 
+    // if end of the file
+    if (this.curPageNo == -1) {
+        return FILEEOF;
+    }
+
+    if (this.curPage == NULL) { // need to load the first page
+        // read first data page
+        int firstPageNo = headerPage->firstPage;
+        // initialize fields of current page
+        status = bufMgr->readPage(file, firstPageNo, pagePtr);
+        if (status!=OK) {return status;}
+        this.curPage = pagePtr;
+        this.curPageNo = firstPageNo;
+        this.curDirtyFlag = false;
+        // get the first record of current page
+        status = curPage->firstRecord(tmpRid);
+        if (status == NORECORDS){ // unpin page and return FILEEOF
+            bufMgr->unPinPage(filePtr,curPageNo,curDirtyFlag);
+            curPage = NULL;
+            curPageNo = -1;
+            return FILEEOF;
+        }else {
+            this.curRec = tmpRid;
+            status = getRecord(rec);
+            if (status!=OK) {return status;}
+            if (matchRec(rec)){ // determine if the first record satisfies the filter
+                outRid = curRec; // return curRec
+                return OK;
+            }
+        }
+    }
     
-	
-	
-	
-	
-	
-	
-	
-	
-	
+    while (getNextRID(nextRid)== OK) { // traverse through every record
+        // update current record to next record found
+        this.curRec = nextRid;
+        status = getRecord(rec);
+        if (status!=OK) {return status;}
+        if (matchRec(rec)){ // determine if matches
+            outRid = curRec; // return curRec
+            return OK;
+        } else {
+            continue;
+        }
+    }
+    
+    return status;
+}
+
+/* helper method to get the RID of next record in the file, read a new page if reaching the end of current page */
+const Status getNextRID(RID& nextRid){
+    Status 	status = OK;
+    RID	tmpRid;
+    int nextPageNo;
+    status = curPage->nextRecord(curRec, tmpRid);
+    while (status == ENDOFPAGE || status == NORECORDS){
+        if (curPageNo == hdrPage->lastPage) {
+            bufMgr->unPinPage(filePtr,curPageNo,curDirtyFlag);
+            curPage = NULL;
+            return FILEEOF;
+        }
+        status = getNextPage(nextPageNo);
+        if (status!=OK) {return status;}
+        // unpin current page
+        bufMgr->unPinPage(filePtr,curPageNo,curDirtyFlag);
+        // load next page    
+        curPageNo = nextPageNo;
+        curDirtyFlag = false;
+        status = bufMgr->readPage(file, firstPageNo, curPage);
+        if (status!=OK) {return status;}
+        //read first record
+        status = curPage->firstRecord(tmpRid);
+    }
+
+    if (status == OK) {
+        // return next rid
+        nextRid = tmpRid;
+        return OK;
+    } else {
+        bufMgr->unPinPage(filePtr,curPageNo,curDirtyFlag);
+        curPage = NULL;
+        return status;
+    } 
 }
 
 
