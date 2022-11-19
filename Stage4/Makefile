@@ -7,7 +7,6 @@
 #
 # Compiler and loader definitions
 #
-PROGRAM = 	testfile
 
 LD =		ld
 LDFLAGS =	
@@ -15,7 +14,6 @@ LDFLAGS =
 CXX =           g++
 CXXFLAGS =	-g -Wall
 
-#PURIFY =        purify -collector=/s/ogcc/bin/ld -g++
 PURIFY =        purify -collector=/usr/ccs/bin/ld -g++
 
 #
@@ -28,22 +26,26 @@ MAKEFILE =      Makefile
 # list of all object and source files
 #
 
-OBJS =  db.o buf.o bufHash.o error.o page.o heapfile.o testfile.o 
-SRCS =	db.C buf.C bufHash.C error.C page.C heapfile.C testfile.C 
+OBJS =  db.o buf.o bufHash.o error.o page.o testbuf.o 
+OBJS2 =  db.o buf.o bufHash.o error.o
+SRCS =	db.C buf.C bufHash.C error.C page.c testbuf.C 
 
-all:		$(PROGRAM)
+all:		testbuf 
 
-$(PROGRAM):	$(OBJS)
+testbuf:	$(OBJS) 
 		$(CXX) -o $@ $(OBJS) $(LDFLAGS)
 
-$(PROGRAM).pure:$(OBJS) 
+##testBhash:	$(OBJS2) 
+##		$(CXX) -o $@ $(OBJS2) $(LDFLAGS)
+
+testbuf.pure:	$(OBJS) 
 		$(PURIFY) $(CXX) -o $@ $(OBJS) $(LDFLAGS)
 
 .C.o:
 		$(CXX) $(CXXFLAGS) -c $<
 
 clean:
-		rm -f core *.bak *~ *.o $(PROGRAM) *.pure .pure testpage
+		rm -f core \#* *.bak *~ *.o test.1 test.2 test.3 test.4 testbuf testbuf.pure .pure
 
 depend:
 		makedepend -I /s/gcc/include/g++ -f$(MAKEFILE) \

@@ -23,9 +23,9 @@ const Status createHeapFile(const string fileName)
 	hdrPage = (FileHdrPage*) newPage;
 		
     //initiallize value in headerpage
-	hdrPage-> fileName=fileName;   // name of file
+	strcpy(hdrPage-> fileName, fileName.c_str());   // name of file
 	hdrPage->firstPage = 0;
-        hdrPage->lastPage = 0;
+    hdrPage->lastPage = 0;
 	hdrPage-> pageCnt=0;	// number of pages
 	hdrPage-> recCnt=0;		// record count
 
@@ -313,7 +313,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
             continue;
         }
     }
-    
+
     return status;
 }
 
@@ -333,7 +333,7 @@ const Status HeapFileScan::getNextRID(RID& nextRid){
         if (status!=OK) {return status;}
         // unpin current page
         bufMgr->unPinPage(filePtr,curPageNo,curDirtyFlag);
-        // load next page    
+        // load next page
         curPageNo = nextPageNo;
         curDirtyFlag = false;
         status = bufMgr->readPage(filePtr, curPageNo, curPage);
@@ -350,7 +350,7 @@ const Status HeapFileScan::getNextRID(RID& nextRid){
         bufMgr->unPinPage(filePtr,curPageNo,curDirtyFlag);
         curPage = NULL;
         return status;
-    } 
+    }
 }
 
 
@@ -516,7 +516,7 @@ const Status InsertFileScan::insertRecord(const Record & rec, RID& outRid)
             curDirtyFlag = false;
             curPageNo = -1;
             curPage = NULL;
-            unpin = bufMgr->unPinPage(filePtr, newPageNo, true);
+            status = bufMgr->unPinPage(filePtr, newPageNo, true);
             return status;
         }
         // Set curPage and curPageNo
