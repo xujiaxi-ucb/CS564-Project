@@ -1,3 +1,12 @@
+// CS564: Heapfile
+// Student name: Jiaxi Xu
+// Student ID: 9083446352
+// Student name: Xueheng Wang
+// Student ID: 9081571748
+// Student name: John Che
+// Student ID: 908 166 6506
+// File purpose: implementations of the buffer manager methods
+
 #include "heapfile.h"
 #include "error.h"
 
