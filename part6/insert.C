@@ -31,7 +31,7 @@ const Status QU_Insert(const string & relation,
 	// construct the record
 	void* data;
 	AttrDesc current;
-	AttrInfo current_info;
+	attrInfo current_info;
 	int length_data = 0;
 	int find = 0;
 	
@@ -57,7 +57,7 @@ const Status QU_Insert(const string & relation,
 		}
 		
 		// copy data
-		memcpy(&data[current.attrOffset], current_info.attrValue, current_info.attrLen);
+		memcpy(&((char*) data)[current.attrOffset], current_info.attrValue, current_info.attrLen);
 		
 		find = 0;
 	}

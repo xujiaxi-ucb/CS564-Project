@@ -33,6 +33,11 @@ const Status QU_Select(const string & result,
     cout << "Doing QU_Select " << endl;
     Status status;
     AttrDesc attrDesc;
+    AttrDesc projNamesDesc[projCnt];
+    //open table to be scanned as heapfileobject
+    HeapFileScan heapfileobj(string(projNames[0].relName), status);
+    if (status != OK){ return status;	 }
+    
     	//check if attr is null
     		//if null ,  call scanselect  and return okay
         	//else use the get info function for attrCat in catalog.h
@@ -40,10 +45,30 @@ const Status QU_Select(const string & result,
     if (attr != NULL){
     	Status status=attrCat->getInfo(string(attr->relName),string(attr->attrName) , attrDesc);
     	if (status != OK){  return status; }
+    	//convert projNames to ProjectNamesDesc
+    	for (int i = 0; i < projCnt; i++){
+    		Status status=attrCat->getInfo(string(projNames[i].relName),string(projNames[i].attrName) , projNamesDesc[i]);
+    		if (status != OK){  return status; }
+    	}
+    	
+    } 
+	// reclen is wrong, it wrongly shows summed length of all outputs, not 'one'
+        //int recLen=attr->attrLen; //length of output tuple
+    int reclen = 0;
+    for (int i = 0; i < projCnt; i++)
+    {
+        reclen += projNamesDesc[i].attrLen;
     }
+    
 
-    int recLen=attr->attrLen; //length of output tuple
-    status = ScanSelect(result, projCnt, projNames[], &attrDesc, op, attrValue, recLen);
+	ScanSelect(result,
+		projCnt,
+		projNamesDesc,
+		&attrDesc,
+		op,
+		attrValue,
+		reclen
+		);
     return status;
 }
 
@@ -70,19 +95,24 @@ const Status ScanSelect(const string & result,
  if (status != OK){	return status;}
  //open table to be scanned as heapfileobject
  HeapFileScan heapfileobj(string(projNames[0].relName), status);
- if (status != OK){ return status;	 }
+ if (status != OK){ return status;}
  //check if unconditional scan is required
   if(attrDesc==NULL){
  	 //How do you perform unconditional scan...
-	  filter=NULL;
+	 //filter=NULL;
+	 // Jiaxi's code is below:
+	  status = heapfileobj.startScan(0, 0, STRING,  NULL, op);
+	  if (status != OK){ return status;}
   }
   //check the attrType and convert filter accordingly
   // if (attrDesc->attrType == STRING){ atoi(filter)
   //  } No need to handle conversion. See Heapfile.c from line 429
 
  //start scan
+ // should be startscan, not scanselect?
+ // arguments are also wrong for startscan
  status= heapfileobj.startScan(attrDesc->attrOffset,attrDesc->attrLen,(Datatype)attrDesc->attrType, filter,op);
- if (status != OK){ return status;	 }
+ if (status != OK){ return status;}
 
  // scan
  RID currRID;
