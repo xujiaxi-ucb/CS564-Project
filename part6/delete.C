@@ -28,6 +28,7 @@ HeapFileScan* heapFileScan;
 RID rid;
 int intNumber;
 float fNumber;
+const char *filter;
 
 if (relation.empty()) {
 	return BADCATPARM;
@@ -49,22 +50,7 @@ if (attrName.length() == 0) {
 			return status;
 		}
 	}
-}
-
-// if attrName is not full, create a new scan in the relation
-heapFileScan = new HeapFileScan(relation, status);
-// for different datatypes, convert attrValue into different filter types
-if (type == INTEGER) {
-intNumber = atoi(attrValue);
-// locate all the qualifying tuples using a filtered HeapFileScan
-heapFileScan->startScan(attrDesc.attrOffset,attrDesc.attrLen,type, (char*) & intNumber, op);
-} else if (type == FLOAT) {
-fNumber = atof(attrValue);
-// locate all the qualifying tuples using a filtered HeapFileScan
-heapFileScan->startScan(attrDesc.attrOffset,attrDesc.attrLen,type, (char *) & fNumber, op);
-} else if (type == STRING) {
-// locate all the qualifying tuples using a filtered HeapFileScan
-heapFileScan->startScan(attrDesc.attrOffset,attrDesc.attrLen,type, attrValue, op);
+	return OK;
 }
 
 // get the attribute's info
@@ -73,8 +59,27 @@ if (status != OK) {
 	return status;
 }
 
+// if attrName is not full, create a new scan in the relation
+heapFileScan = new HeapFileScan(relation, status);
+
+// for different datatypes, convert attrValue into different filter types
+if (type == INTEGER) {
+intNumber = atoi(attrValue);
+filter = (char *)&intNumber;
+} else if (type == FLOAT) {
+fNumber = atof(attrValue);
+filter = (char *)&fNumber;
+} else if (type == STRING) {
+filter = attrValue;
+}
+// locate all the qualifying tuples using a filtered HeapFileScan
+status = heapFileScan->startScan(attrDesc.attrOffset,attrDesc.attrLen,type, filter, op);
+if (status != OK) {
+	return status;
+}
+
 // delete the matched record
-while ((status = heapFileScan->scanNext(rid)) != FILEEOF) {
+while ((status = heapFileScan->scanNext(rid)) == OK) {
 		status = heapFileScan->deleteRecord();
 		if (status != OK) {
 			return status;
