@@ -34,31 +34,36 @@ const Status QU_Select(const string & result,
     Status status;
     AttrDesc attrDesc;
     AttrDesc projNamesDesc[projCnt];
-    //open table to be scanned as heapfileobject
-    HeapFileScan heapfileobj(string(projNames[0].relName), status);
-    if (status != OK){ return status;	 }
+
     
     	//check if attr is null
     		//if null ,  call scanselect  and return okay
         	//else use the get info function for attrCat in catalog.h
         	//call scanselect then return okay
-    if (attr != NULL){
+	int reclen=0;
+	c//out << " attrname is " << projNames[0].attrName;
+	//cout << " attrname is " << projNames; projNames giving problems
+    if (attr!=NULL){
+		//cout << " attrname is " << projNames[0].attrName;
     	Status status=attrCat->getInfo(string(attr->relName),string(attr->attrName) , attrDesc);
     	if (status != OK){  return status; }
-    	//convert projNames to ProjectNamesDesc
-    	for (int i = 0; i < projCnt; i++){
-    		Status status=attrCat->getInfo(string(projNames[i].relName),string(projNames[i].attrName) , projNamesDesc[i]);
-    		if (status != OK){  return status; }
-    	}
-    	
-    } 
+	}
+	//convert projNames to ProjectNamesDesc
+	for (int i = 0; i < projCnt; i++){
+		
+		Status status=attrCat->getInfo(string(projNames[i].relName),string(projNames[i].attrName) , projNamesDesc[i]);
+		if (status != OK){  return status; }
+		//cout << " projDesc name is  " << projNamesDesc[i].attrName;
+	}
+	
+
 	// reclen is wrong, it wrongly shows summed length of all outputs, not 'one'
-        //int recLen=attr->attrLen; //length of output tuple
-    int reclen = 0;
-    for (int i = 0; i < projCnt; i++)
-    {
-        reclen += projNamesDesc[i].attrLen;
-    }
+		//int recLen=attr->attrLen; //length of output tuple
+		
+	for (int i = 0; i < projCnt; i++)
+	{   //cout << " attrname is " << projNames[i].attrLen;
+		reclen += abs(projNames[i].attrLen);
+	}
     
 
 	ScanSelect(result,
@@ -85,16 +90,22 @@ const Status ScanSelect(const string & result,
 //TODO
 //check status. Check status whenever you use it
  //create temp rec
- char tempRecData[reclen];
+ //cout << "Just got into scanselect" << reclen;
+ char tempRecData[reclen]; //removed reclen
+ //cout << "right after tempRecData" << endl;
  Record tempRec;
  tempRec.data = (void *) tempRecData;
+ //cout << "Jright after temRecData" << endl;
  tempRec.length = reclen;
+ //cout << "RIGHT before insertfilescan " << endl;
 
  Status status;
  InsertFileScan resultRel(result,status);
+ //cout << "RIGHT after insertfilescan " << endl;
  if (status != OK){	return status;}
  //open table to be scanned as heapfileobject
  HeapFileScan heapfileobj(string(projNames[0].relName), status);
+  //cout << "RIGHT after heapfilescan " << endl;
  if (status != OK){ return status;}
  //check if unconditional scan is required
   if(attrDesc==NULL){
@@ -104,6 +115,7 @@ const Status ScanSelect(const string & result,
 	  status = heapfileobj.startScan(0, 0, STRING,  NULL, op);
 	  if (status != OK){ return status;}
   }
+   //cout << "RIGHT after unconditional scan block " << endl;
   //check the attrType and convert filter accordingly
   // if (attrDesc->attrType == STRING){ atoi(filter)
   //  } No need to handle conversion. See Heapfile.c from line 429
@@ -113,12 +125,13 @@ const Status ScanSelect(const string & result,
  // arguments are also wrong for startscan
  status= heapfileobj.startScan(attrDesc->attrOffset,attrDesc->attrLen,(Datatype)attrDesc->attrType, filter,op);
  if (status != OK){ return status;}
-
+ //cout << "RIGHT after startescan " << endl;
  // scan
  RID currRID;
  Record currRec;
  int resultTupCnt = 0;
  while (heapfileobj.scanNext(currRID) == OK) {
+	 cout << "scanning next record" << endl;
      status = heapfileobj.getRecord(currRec);
      if (status == OK){ //if we find a record, copy to tempRec
     	int tempRecOffset = 0;
@@ -139,6 +152,7 @@ const Status ScanSelect(const string & result,
      resultTupCnt++;
  }
  printf("tuple nested join produced %d result tuples \n", resultTupCnt);
- return OK;
+ cerr << " status is " << status <<endl; //STATUS FROM SELECT IS OKAY SHOWING ERROR IS FROM ANOTHER FUNCTION
+ return status;
 
 }
