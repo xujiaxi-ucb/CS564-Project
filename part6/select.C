@@ -152,7 +152,7 @@ const Status ScanSelect(const string & result,
      resultTupCnt++;
  }
  printf("tuple nested join produced %d result tuples \n", resultTupCnt);
- cerr << " status is " << status <<endl; //STATUS FROM SELECT IS OKAY SHOWING ERROR IS FROM ANOTHER FUNCTION
+ cerr << " status from select is " << status <<endl; //STATUS FROM SELECT IS OKAY SHOWING ERROR IS FROM ANOTHER FUNCTION
  return status;
 
 }
