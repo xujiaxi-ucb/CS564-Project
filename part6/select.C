@@ -41,17 +41,17 @@ const Status QU_Select(const string & result,
         	//else use the get info function for attrCat in catalog.h
         	//call scanselect then return okay
 	int reclen=0;
-	c//out << " attrname is " << projNames[0].attrName;
+	//out << " attrname is " << projNames[0].attrName;
 	//cout << " attrname is " << projNames; projNames giving problems
     if (attr!=NULL){
 		//cout << " attrname is " << projNames[0].attrName;
-    	Status status=attrCat->getInfo(string(attr->relName),string(attr->attrName) , attrDesc);
+    	status=attrCat->getInfo(string(attr->relName),string(attr->attrName) , attrDesc);
     	if (status != OK){  return status; }
 	}
 	//convert projNames to ProjectNamesDesc
 	for (int i = 0; i < projCnt; i++){
 		
-		Status status=attrCat->getInfo(string(projNames[i].relName),string(projNames[i].attrName) , projNamesDesc[i]);
+		status=attrCat->getInfo(string(projNames[i].relName),string(projNames[i].attrName) , projNamesDesc[i]);
 		if (status != OK){  return status; }
 		//cout << " projDesc name is  " << projNamesDesc[i].attrName;
 	}
@@ -66,7 +66,7 @@ const Status QU_Select(const string & result,
 	}
     
 
-	ScanSelect(result,
+	status= ScanSelect(result,
 		projCnt,
 		projNamesDesc,
 		&attrDesc,
@@ -74,6 +74,7 @@ const Status QU_Select(const string & result,
 		attrValue,
 		reclen
 		);
+	cerr << " status from QU_select is " << status <<endl; 
     return status;
 }
 
@@ -152,7 +153,7 @@ const Status ScanSelect(const string & result,
      resultTupCnt++;
  }
  printf("tuple nested join produced %d result tuples \n", resultTupCnt);
- cerr << " status from select is " << status <<endl; //STATUS FROM SELECT IS OKAY SHOWING ERROR IS FROM ANOTHER FUNCTION
+ cerr << " status from scanselect is " << status <<endl; //STATUS FROM SELECT IS OKAY SHOWING ERROR IS FROM ANOTHER FUNCTION
  return status;
 
 }
