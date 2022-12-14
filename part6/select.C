@@ -33,17 +33,55 @@ const Status QU_Select(const string & result,
     cout << "Doing QU_Select " << endl;
     Status status;
     AttrDesc attrDesc;
-    	//check if attr is null
-    		//if null ,  call scanselect  and return okay
+    int reclen = 0; // length of record: summed length of all outputs
+    
+    AttrDesc projNamesDesc[projCnt]; // stores all attributes to be projected
+    //convert projNames to ProjectNamesDesc 
+    for (int i = 0; i < projCnt; i++){
+    	status=attrCat->getInfo(string(projNames[i].relName),string(projNames[i].attrName), projNamesDesc[i]);
+    	if (status != OK){  return status; }
+    	reclen += projNamesDesc[i].attrLen;
+    }
+    
+//   open table to be scanned as heapfileobject
+//     HeapFileScan heapfileobj(string(projNames[0].relName), status);
+//     if (status != OK){ return status;	 }
+    
+    		//check if attr is null
+    		//if null ,call scanselect and return okay
         	//else use the get info function for attrCat in catalog.h
         	//call scanselect then return okay
+    const char* filter;
+    Operator op1;
     if (attr != NULL){
-    	Status status=attrCat->getInfo(string(attr->relName),string(attr->attrName) , attrDesc);
+    	status=attrCat->getInfo(string(attr->relName), string(attr->attrName), attrDesc);
     	if (status != OK){  return status; }
+    	//char* temp1;
+    	int temp2;
+    	float temp3;
+    	// convert to proper type
+    	switch (attr->attrType) {
+    		case STRING:
+    			filter = attrValue;
+    			break;
+            case INTEGER:
+            	temp2 = atoi(attrValue);
+                filter = (char*)&temp2;
+                break;
+            case FLOAT:
+            	temp3 = atof(attrValue);
+                filter = (char*)&temp3;
+                break;           
+        }	
+    } else{ // if NULL, unconditional scan, set filter = NULL, do not care other fields 
+    	attrDesc.attrOffset = 0;
+        attrDesc.attrLen = 0;
+    	attrDesc.attrType = STRING;
+    	filter = NULL;
     }
-
-    int recLen=attr->attrLen; //length of output tuple
-    status = ScanSelect(result, projCnt, projNames[], &attrDesc, op, attrValue, recLen);
+	
+	// call ScanSelect after all arguments are constructed
+	status = ScanSelect(result, projCnt, projNamesDesc, &attrDesc, op, filter, reclen);
     return status;
 }
 
@@ -57,32 +95,28 @@ const Status ScanSelect(const string & result,
 			const int reclen)
 {
     cout << "Doing HeapFileScan Selection using ScanSelect()" << endl;
-//TODO
-//check status. Check status whenever you use it
+//cout << "filter: " << endl;
+//cout << *filter << endl;
+ //TODO
+ //check status. Check status whenever you use it
  //create temp rec
+ //cout << reclen << endl;
  char tempRecData[reclen];
  Record tempRec;
  tempRec.data = (void *) tempRecData;
  tempRec.length = reclen;
-
  Status status;
+ 
  InsertFileScan resultRel(result,status);
  if (status != OK){	return status;}
+ 
  //open table to be scanned as heapfileobject
  HeapFileScan heapfileobj(string(projNames[0].relName), status);
- if (status != OK){ return status;	 }
- //check if unconditional scan is required
-  if(attrDesc==NULL){
- 	 //How do you perform unconditional scan...
-	  filter=NULL;
-  }
-  //check the attrType and convert filter accordingly
-  // if (attrDesc->attrType == STRING){ atoi(filter)
-  //  } No need to handle conversion. See Heapfile.c from line 429
-
- //start scan
- status= heapfileobj.startScan(attrDesc->attrOffset,attrDesc->attrLen,(Datatype)attrDesc->attrType, filter,op);
- if (status != OK){ return status;	 }
+ if (status != OK){ return status;}
+ 
+// start scan
+status = heapfileobj.startScan(attrDesc->attrOffset, attrDesc->attrLen, (Datatype)attrDesc->attrType, filter, op);
+if (status != OK){ return status;}
 
  // scan
  RID currRID;
@@ -92,7 +126,8 @@ const Status ScanSelect(const string & result,
      status = heapfileobj.getRecord(currRec);
      if (status == OK){ //if we find a record, copy to tempRec
     	int tempRecOffset = 0;
-		 for (int i = 0; i < projCnt; i++){
+		
+		for (int i = 0; i < projCnt; i++){
 			 	 memcpy(tempRecData + tempRecOffset,
     			 (char *)currRec.data + projNames[i].attrOffset,
 				 projNames[i].attrLen); //COPY TO TempRec
@@ -110,5 +145,4 @@ const Status ScanSelect(const string & result,
  }
  printf("tuple nested join produced %d result tuples \n", resultTupCnt);
  return OK;
-
 }

@@ -15,12 +15,14 @@ const Status QU_Insert(const string & relation,
 	const attrInfo attrList[])
 {
 // part 6
-	RID rid;
 	Record rec;
-	InsertFileScan* ifs;
 	Status status;
 	int cnt;
 	AttrDesc *attrs; // an array of AttrDesc
+	
+	// insertFileScan
+	InsertFileScan* ifs = new InsertFileScan(relation, status);
+	if (status != OK) return status;
 	
 	status = attrCat -> getRelInfo(relation, cnt, attrs);
 	if (status != OK) return status;
@@ -28,11 +30,15 @@ const Status QU_Insert(const string & relation,
 	// if the counts of attributes are not the same, return OK
 	if (attrCnt!=cnt) {return OK;}
 	
+	int length_data = 0; // calculate length of the record
+	for (int i = 0; i < cnt; i++) {
+        length_data += attrs[i].attrLen;
+    }
+    
 	// construct the record
-	void* data;
+	char data[length_data];
 	AttrDesc current;
-	AttrInfo current_info;
-	int length_data = 0;
+	attrInfo current_info;
 	int find = 0;
 	
 	for (int ind = 0; ind < cnt; ind ++) {
@@ -40,35 +46,48 @@ const Status QU_Insert(const string & relation,
 		
 		// find corresponding attrInfo
 		for (int i = 0; i < attrCnt; i++) {
-			if (attrList[i].attrName == current.attrName && attrList[i].attrType == current.attrType){ 
+			if (strcmp(attrList[i].attrName, current.attrName) == 0){ 
 				current_info = attrList[i];
 				find = 1;
+				break;
 			}
 		}
 		
 		// if not find corresponding attrInfo from the input
 		if (find == 0) {return OK;}
+		char * value;
+		int temp1;
+		float temp2;
+		// convert to corresponding type
+		switch (current_info.attrType) {
+			case STRING:
+				value = (char*)current_info.attrValue;
+				break;
+            case INTEGER:
+                temp1 = atoi((char*)current_info.attrValue);
+                value = (char*)&temp1;
+                break;
+            case FLOAT:
+                temp2 = atof((char*)current_info.attrValue);
+                value = (char*)&temp2;
+                break;
+        }
+// 		if (ind == 0) { //allocate memory to store the record
+// 			data = (void *)malloc(length_data);
+// 		}else { //reallocate memory to store the record
+// 			data = (void *)realloc(data, length_data);
+// 		}
 		
-		length_data = length_data + current_info.attrLen;
-		if (ind == 0) { //allocate memory to store the record
-			data = (void *)malloc(length_data);
-		}else { //reallocate memory to store the record
-			data = (void *)realloc(data, length_data);
-		}
-		
+		memcpy(data + current.attrOffset, value, current.attrLen);
 		// copy data
-		memcpy(&data[current.attrOffset], current_info.attrValue, current_info.attrLen);
-		
+		// memcpy(&((char*)data)[current.attrOffset], current_info.attrValue, current_info.attrLen);
 		find = 0;
 	}
 	
-	// insertFileScan
-	ifs = new InsertFileScan(relation, status);
-	if (status != OK) return status;
-	
 	// Record
 	rec.length = length_data;
-	rec.data = data;
+	rec.data = (void*)data;
+	RID rid;
 	status = ifs->insertRecord(rec, rid);
 	delete ifs;
   	return status;
